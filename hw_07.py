@@ -105,20 +105,30 @@ class AddressBook(UserDict):
             raise ValueError("No contacts found.")
 
         
-    def get_upcoming_birthdays(self):
-        today = date.today()
-        end_date = today + timedelta(days=7)
+    def get_upcoming_birthdays(self, days=7):
         upcoming_birthdays = []
+        today = date.today()
+        end_date = today + timedelta(days=days)
         
+        def find_next_weekday(start_date, weekday):
+            days_ahead = weekday - start_date.weekday()
+            if days_ahead <= 0:
+                days_ahead += 7
+            return start_date + timedelta(days=days_ahead)
+        
+        def adjust_for_weekend(birthday):
+            if birthday.weekday() >= 5:
+                return find_next_weekday(birthday, 0)
+            return birthday
+
         for record in self.data.values():
             if record.birthday:
-                birthday_date = record.birthday.value.replace(year=today.year).date()
-                if today <= birthday_date <= end_date:
-                    upcoming_birthdays.append((record.name.value, birthday_date))
-                    
+                birthday_this_year = record.birthday.value.replace(year=today.year)
+                if today <= birthday_this_year.date() <= end_date:
+                    adjusted_birthday = adjust_for_weekend(birthday_this_year.date())
+                    upcoming_birthdays.append((record.name.value, adjusted_birthday))
         return upcoming_birthdays
-        
-            
+             
 @input_error
 def add_contact(args, book: AddressBook):
     name, phone, *_ = args
@@ -185,7 +195,10 @@ def main():
     book = AddressBook()
     print("Welcome to the assistant bot!")
     while True:
-        user_input = input("Введіть команду: ")
+        user_input = input("Введіть команду: ").strip().lower()
+        if not user_input:
+            print("Please enter a command.")
+            continue
         command, *args = parse_input(user_input)
         try:
             if command == "hello":
@@ -219,9 +232,9 @@ def main():
                 print("Good bye!")
                 break
             else:
-                print("Невідома команда. Спробуйте ще раз.")
+                print("Unknown command. Try again.")
         except ValueError as e:
-            print(f"Помилка: {e}")
+            print(f"Error: {e}")
 
 
 if __name__ == "__main__":
